@@ -1,17 +1,17 @@
 ---
 name: work
-description: "Work projects. Triggers: '/work', 'work project', 'trabajo'. Currently a stub — workflow to be designed later."
+description: "Work projects. Triggers: '/work', 'work project', 'trabajo', 'proyecto de trabajo'. Currently a stub — workflow is not yet designed. Offers the user a way to design it or return to the menu."
 ---
 
 # Work — stub
 
-This skill is a placeholder. The work flow has not been designed yet.
+The work flow hasn't been designed yet. We'll figure it out together when the user is ready.
 
 ## Behavior
 
-1. Tell the user: *"Work flow isn't built yet. Want to design it now, or jump back to /agent menu?"*
-2. Offer two options via AskUserQuestion:
-   - **Design it now** — ask the user what kinds of work projects they want to track, then propose a structure
-   - **Back to /agent** — invoke the `agent` skill
+1. Tell the user (friendly): *"The work flow isn't built yet. Want to design it now, or back to the menu?"*
+2. Use AskUserQuestion with two options:
+   - **Design it now** — ask the user what kinds of work projects they want to track, what the typical artifacts are, who consumes the output, etc. Then propose a structure analogous to `school/` and add it to SPEC.md.
+   - **Back to /agent** — invoke the `agent` skill.
 
-Do not attempt to scaffold work projects or invent workflow steps without the user's input.
+Do **not** scaffold work projects or invent workflow steps without the user's input.
