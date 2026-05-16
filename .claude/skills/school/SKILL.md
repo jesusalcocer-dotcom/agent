@@ -279,15 +279,11 @@ Update `progress.md` → `phase: draft complete; next: export`.
 
 Use the **`docx` skill** (`.claude/skills/docx/`) to render `output/draft.md` → `output/<slug>_v1.docx`.
 
-Pass formatting requirements from `reasoning/plan.md` (font, size, line spacing, page size, margins, language).
+**Read `FORMATTING.md` in this skill directory before exporting.** It is the single source of truth for academic formatting (typography, page layout, tables, what to never do, pandoc post-processing checklist).
 
-Defaults if instructions don't specify (UNIR norms):
-- Font: Calibri 11pt
-- Line spacing: 1.5
-- Page size: A4
-- Margins: 2.54 cm
-- Page numbers in footer
-- Title page or header with subject + student name (if known) + date
+**Rule of precedence**: the assignment instructions ALWAYS win. `FORMATTING.md` is only used to fill blanks where the instructions are silent. Re-read the "Extensión y formato" / "Presentación" section of the brief and apply it literally first; then layer the defaults from `FORMATTING.md` on top for whatever the brief didn't specify.
+
+When you apply a default, log it in `progress.md` under "Format decisions" so the user can see what was assumed.
 
 After export, **open the file in Microsoft Word**:
 ```bash
