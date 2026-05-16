@@ -43,3 +43,6 @@ unpacked/
 
 # Local-only working notes (user can override)
 scratch/
+
+# Word lock files (open-document temp files)
+~$*
