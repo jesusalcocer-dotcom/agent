@@ -1,8 +1,21 @@
 # Progress — testing
 
-**Phase**: plan complete
-**Next step**: Execute plan → write draft.md
-**Mode**: autonomous
+**Phase**: v1 exported, open in Word
+**Next step**: Awaiting user review
+**Mode**: waiting on user
+
+## Files produced
+- `reasoning/plan.md` — plan + maximize analysis
+- `output/draft.md` — markdown draft (source of truth)
+- `output/testing_v1.docx` — Word export (Calibri 12, 1.5 spacing, A4, 2.54 cm margins)
+
+## Assumptions made during autonomous run
+1. Patología foco: Daño Cerebral Adquirido (DCA) — sugerida por el enunciado
+2. Ubicación: España
+3. Tipo de centro: privado con vocación concertada
+4. Equipo mínimo: 2 neuropsicólogos + 1 administrativo
+5. Nombre de la unidad: "NeuroAdulto" (editable)
+Surfaced inside the Word doc at the end so the user can override before submitting.
 
 ## Metadata (extracted from instructions)
 - Subject: Neuropsicología Clínica II (UNIR)
