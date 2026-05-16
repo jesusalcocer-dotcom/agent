@@ -1,8 +1,8 @@
 # Progress — testing
 
-**Phase**: scaffolded — awaiting files
-**Next step**: User drops files into `school/testing/`, says "ready", then Step 3 (auto-routing) begins
-**Mode**: waiting on user
+**Phase**: preprocessing
+**Next step**: Convert docx → md, transcribe mp4, then build plan
+**Mode**: autonomous
 
 ## Metadata (extracted from instructions, not asked)
 - Subject: TBD (extract from instructions)
