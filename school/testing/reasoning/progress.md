@@ -1,8 +1,17 @@
 # Progress — testing
 
-**Phase**: preprocessing
-**Next step**: Convert docx → md, transcribe mp4, then build plan
+**Phase**: plan complete
+**Next step**: Execute plan → write draft.md
 **Mode**: autonomous
+
+## Metadata (extracted from instructions)
+- Subject: Neuropsicología Clínica II (UNIR)
+- Activity: Actividad 3 — Proyecto transversal: creación de un servicio de evaluación neuropsicológica de adultos (grupal)
+- Page limit: 7
+- Format: Calibri 12, interlineado 1,5
+- Language: Spanish
+- Group/individual: grupal
+- Patología foco asumida: Daño Cerebral Adquirido (DCA) — sugerida por el enunciado
 
 ## Metadata (extracted from instructions, not asked)
 - Subject: TBD (extract from instructions)
