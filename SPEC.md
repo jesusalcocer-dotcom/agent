@@ -46,7 +46,11 @@ agent/
 │       ├── background/
 │       ├── transcripts/
 │       ├── reasoning/
-│       │   ├── plan.md             single document — maximize analysis + plan + justifications inline
+│       │   ├── sources/            comprehensive per-source analyses (one file per source)
+│       │   │   └── <source>.md
+│       │   ├── plan.md             maximize analysis + plan + sub-agent A critique + sources index
+│       │   ├── outline.md          outline with auto-crítica at top
+│       │   ├── audit.md            chat-friendly audit summary (mirror of Step 8.5 chat message)
 │       │   └── progress.md         lightweight resumption state
 │       └── output/
 │           ├── draft.md            markdown source of truth
@@ -124,16 +128,17 @@ Status updates (one line each):
 
 Commit `chore(<slug>): preprocessing complete`.
 
-### Step 6 — Maximize + plan (autonomous, single doc)
+### Step 6 — Maximize + per-source analysis + plan (autonomous, with blind sub-agent A)
 
 Read everything: instructions `.md`, all background `.md` sidecars, all transcripts.
 
-Build the maximize analysis **internally** with three internal passes:
-1. **v1 (internal)** — rubric, implicit signals, grader psychology, pedagogical aim, high-leverage moves, traps
-2. **Adversarial (internal)** — harsh UNIR grader critiques v1, finds weaknesses, hidden requirements
-3. **v2 (final, written to disk)** — synthesis
+Build the maximize + plan in four sub-steps:
+1. **6a — Maximize v1 (in your head, not saved)** — rubric, implicit signals, grader psychology, pedagogical aim, high-leverage moves, traps.
+2. **6b — Per-source analysis (MANDATORY, one file per source)** — for every file in `instructions/`, `background/`, and `transcripts/`, write a comprehensive analysis to `reasoning/sources/<sluggified-basename>.md`. Each analysis must include: identification, substantive content summary (3-5 paragraphs minimum, with markers), relevance analysis for THIS assignment (one section per connection identified, with explicit justification linked to the maximize analysis), citable material list, what is NOT used and why, cross-source integration, mapping to the final doc sections. **Superficial paragraphs are unacceptable** — depth must scale with source size.
+3. **6c — Sub-agent A blind adversarial critique** — invoke the Agent tool (`subagent_type: "general-purpose"`, **`model: "opus"`**). Pass it ONLY the assignment instructions and your written v1. **Do NOT share your chain-of-thought or the per-source analyses.** The sub-agent returns a harsh UNIR-grader-style critique. See `.claude/skills/school/SKILL.md` for the full prompt template.
+4. **6d — v2 synthesis → `reasoning/plan.md`** — combine your v1 + sub-agent A's critique, write `reasoning/plan.md` (in Spanish). Plan doc includes the critique verbatim, how it was addressed, and an **index** (not duplicate) of the per-source analyses in `reasoning/sources/`.
 
-Write `reasoning/plan.md` (ONE doc, justifications inline). Structure:
+Plan doc structure:
 
 ```markdown
 # Plan — <slug>
@@ -179,36 +184,57 @@ Status update: *"Plan written. Continuing to drafting."*
 
 Commit `docs(<slug>): plan + maximize complete`.
 
-### Step 7 — Execute plan (autonomous)
+### Step 7 — Outline → outline self-critique → draft → blind sub-agent B → revise
 
-Follow the plan from Step 6. Each plan step:
-- Status update (one line)
-- Write artifact to `output/` or `reasoning/` as appropriate
-- Commit at meaningful checkpoints (`feat(<slug>): <step description>`)
+**Mandatory order, no shortcuts.** The outline + self-critique are non-negotiable — they force the agent to integrate every per-source analysis before committing to prose.
 
-The drafting work goes into `output/draft.md` (markdown — single source of truth).
+7a. **Write outline → `reasoning/outline.md`** — section-by-section structure built from `plan.md` + every `reasoning/sources/*.md`. For each section: target word count, 3-5 key points, source files that support each point, which "high-leverage move" the section embodies, which "trap to avoid" it structurally guards against. NO prose yet.
 
-After draft is complete:
-- Self-review against `plan.md` success criteria
-- Estimate pages via `tools/estimate_pages.py` (word count + format heuristic)
-- If estimate exceeds page limit → compress to fit, log compression decisions
-- Commit `feat(<slug>): draft complete`
+7b. **Outline self-critique (MANDATORY, internal)** — at top of `outline.md`, reason through: rubric coverage (each requirement in some section?), source integration (every `reasoning/sources/*.md` file used or justifiably excluded?), high-leverage moves (each present?), traps (structurally avoided?), word-count budget vs page limit, narrative coherence. Iterate the outline until "limpio". Commit `docs(<slug>): outline + self-critique complete`.
 
-### Step 8 — Export to Word + auto-open
+7c. **Draft from outline** — write `output/draft.md` section by section, following the outline. Pull citations/data/frameworks from the relevant `reasoning/sources/*.md` files per the outline's mapping. Spanish (or instructions language), justified prose. Commit `feat(<slug>): draft v1 complete`.
 
-- Invoke the `docx` skill to render `output/draft.md` → `output/<slug>_v1.docx`
-- Use formatting extracted from instructions (font, size, spacing, page setup)
-- Open the .docx in Microsoft Word: `open -a "Microsoft Word" <path>` (falls back to `open <path>` if Word missing)
-- Commit `feat(<slug>): export v1.docx`
+7d. **Sub-agent B blind draft critique** — invoke the Agent tool (`subagent_type: "general-purpose"`, **`model: "opus"`**). Pass it ONLY the assignment instructions and the draft. **Do NOT share the plan, outline, or per-source analyses.** The sub-agent returns a harsh rubric-bound critique.
 
-### Step 9 — User reviews finished Word doc (second & final user touchpoint)
+7e. **Address the critique** — revise `output/draft.md` based on sub-agent B's critique. Document which points were addressed, which dismissed, why. Save both the critique and your responses for the Step 8.5 audit summary.
 
-Present picker:
-- ✅ **Looks good — I'm done**
-- 🔄 **Make changes** (free text or screenshot — user can either describe changes in chat OR send a screenshot of the part that needs work)
+7f. **Self-review + page check** — re-read against `plan.md` success criteria, run `tools/estimate_pages.py`, compress if over the page limit, append unresolved assumptions as "Supuestos" at the end of the draft. Commit `feat(<slug>): draft v1 complete (post blind critique)`.
+
+### Step 8 — Format + export to Word (no post-processing)
+
+8a. **Parse format requirements** from `instructions/*.md` — page limit, font, line spacing, margins, citation style, required sections, language.
+
+8b. **Fill gaps from `FORMATTING.md`** (lives in `.claude/skills/school/`). Build a Format Decisions table in `progress.md` showing what's explicit vs defaulted.
+
+8c. **Generate the .docx via docx-js with formatting applied in-line.** Do NOT pandoc-and-postprocess. Instead, write a transient JS build file in `output/` that uses docx-js Document/Paragraph/TextRun components with the right fonts, sizes, spacing, alignment (Spanish academic convention: justified body, left-aligned headings), page setup, page numbers in footer, no theme colors, no emoji bullets. Run it with `node`, then delete the JS file.
+
+8d. **Do NOT open the .docx yet** — Step 8.5 comes first.
+
+Commit `feat(<slug>): export v1.docx with formatting applied`.
+
+### Step 8.5 — Audit summary (NEW, before Word opens)
+
+Write an audit summary as a chat message AND save the identical content to `reasoning/audit.md`. This is the **last thing the user sees before the Word doc opens** — gives them transparency on what was reasoned, critiqued, and incorporated.
+
+Format (in Spanish, ~400-600 words):
+1. **Análisis de maximización** — synthesis of what the rubric/grader cares about
+2. **Revisión adversarial (sub-agente A)** — what the blind reviewer flagged + how addressed
+3. **Material relevante por fuente** — what each transcript / background doc contributed
+4. **Crítica del borrador (sub-agente B)** — what the blind draft reviewer flagged + how addressed
+5. **Decisiones de formato** — instructions vs FORMATTING.md defaults
+6. **Supuestos no resueltos** — flagged for user to override
+
+After writing, commit `docs(<slug>): audit summary written`, then proceed to Step 9.
+
+### Step 9 — Open Word + second user touchpoint
+
+- `open -a "Microsoft Word" "<absolute path>"` (or fallback to `open`)
+- Picker via AskUserQuestion:
+  - ✅ **Looks good — I'm done**
+  - 🔄 **Make changes** (free text or screenshot)
 
 ### Step 10 — Iterate (loop)
-Edits go to `output/draft.md`. Re-export `_v2.docx`, re-open in Word. Repeat until user is done. Commit each iteration.
+Edits go to `output/draft.md`. Re-run the docx-js build with version bump → `_v2.docx`, re-open in Word. Repeat until user is done. Commit each iteration.
 
 ---
 
@@ -216,40 +242,56 @@ Edits go to `output/draft.md`. Re-export `_v2.docx`, re-open in Word. Repeat unt
 
 1. **One mode: autonomous after instructions confirm.** No "work together" / "checkpoint" mode. The user clicks Go once. Claude runs to a finished Word doc.
 
-2. **Single user touchpoint** during the executable pipeline (Step 4 → "Go"). Plus a final review touchpoint when the .docx opens in Word.
+2. **Single user touchpoint** during the executable pipeline (Step 4 → "Go"). Plus a final review touchpoint when the .docx opens in Word. The Step 8.5 audit summary is shown in chat (not a pause — runs through, then opens Word).
 
-3. **Auto-open every deliverable.** The user never has to find a file in Finder. Markdown reasoning files open in VS Code (`code <path>`). Final docx opens in Word (`open -a "Microsoft Word" <path>`).
+3. **Auto-open every deliverable.** The user never has to find a file in Finder. Final docx opens in Word (`open -a "Microsoft Word" <path>`).
 
 4. **Speak like an employee briefing, not a developer log.** "I'm building the plan now" instead of "Generating reasoning/plan.md".
 
-5. **Maximize lens always on.** Every plan step asks "does this maximize the grade?" Adversarial review built into the planning phase.
+5. **Maximize lens always on.** Every plan step asks "does this maximize the grade?"
 
-6. **Auditable: one plan doc with reasoning inline.** No separate `decision_log.md` or `adversarial.md`. Just `reasoning/plan.md` with justifications, alternatives, and success criteria inline. Plus git commits with descriptive messages.
+6. **Blind sub-agent reviews remove same-agent bias.** Sub-agent A critiques the maximize analysis (Step 6c); sub-agent B critiques the draft (Step 7d). Both run in isolation — they see only the inputs (instructions + artifact), NOT the writer's chain-of-thought, the per-source analyses, the plan, or the outline. All sub-agents run on `model: "opus"` for maximum capability.
 
-7. **Markdown is the source of truth.** All drafting happens in `output/draft.md`. Word export is regenerated from markdown each time.
+6b. **Mandatory thoroughness steps cannot be skipped.** The agent has leeway on the plan, but always must do these in order: per-source analysis (one comprehensive file per source) → maximize plan → outline → outline self-critique → draft → draft critique. Skipping these or doing them superficially defeats the architecture. The skill enforces this by structure.
 
-8. **Page count is a rough estimate, not an exact count.** Word count × format heuristic. If user finds it's over, they ask Claude to compress (or send a screenshot of the overflow). No PDF round-trip — too slow, prone to loops.
+7. **Audit trail surfaced in chat before Word opens.** The user reads the maximize reasoning, both sub-agent critiques, how each was addressed, and format decisions BEFORE seeing the document. Builds trust in the process.
 
-9. **Document assumptions, don't block.** If Claude hits ambiguity mid-autonomous-run, it makes a documented assumption (noted in `progress.md` and surfaced in the final Word doc as a footnote / comment) and keeps going. User can override during iteration.
+8. **Auditable: one plan doc + one audit doc.** `reasoning/plan.md` has the maximize analysis + plan + sub-agent A's critique embedded. `reasoning/audit.md` has the chat-friendly audit summary (mirror of what's shown in chat). No separate `adversarial.md` or `decision_log.md`. Plus git commits with descriptive messages.
 
-10. **Git tracks everything.** Each phase commits. `.env` and media files are gitignored.
+9. **Markdown is the source of truth.** All drafting happens in `output/draft.md`. Word export is regenerated from markdown each time, with formatting applied in-line via docx-js parameters (NOT pandoc + post-processing).
+
+10. **Format: instructions always win, FORMATTING.md fills gaps.** Read `instructions/*.md` for explicit format rules first. For each unspecified item, apply the default from `.claude/skills/school/FORMATTING.md`. Log every defaulted choice in `progress.md` and the audit summary so the user can override.
+
+11. **Page count is a rough estimate, not an exact count.** Word count × format heuristic. If user finds it's over, they ask Claude to compress (or send a screenshot of the overflow). No PDF round-trip — too slow, prone to loops.
+
+12. **Document assumptions, don't block.** If Claude hits ambiguity mid-autonomous-run, it makes a documented assumption (noted in `progress.md`, in the audit summary, and as "Supuestos" at the end of the draft) and keeps going. User can override during iteration.
+
+13. **Git tracks everything.** Each phase commits. `.env` and media files are gitignored.
+
+14. **All AI work runs on Opus 4.7, max effort, dangerously-skip-permissions. Non-negotiable.** Main session AND every spawned sub-agent. Launch with `claude --dangerously-skip-permissions`; set `/effort max` in-session. Agent tool calls always pass `model: "opus"`. The skill refuses to do shallow work — it is designed for this configuration.
 
 ---
 
-## 6. Implementation checklist (this rewrite)
+## 6. Implementation status
 
+Foundation (initial scaffold):
 - [x] `.gitignore`, `.env`, `README.md`, `CLAUDE.md` — foundation files
 - [x] Anthropic `docx` + `pdf` skills installed at `.claude/skills/`
 - [x] `tools/transcribe.py`, `tools/pages_to_md.py` — preprocessing helpers
 - [x] Initial commit + push to GitHub
-- [ ] **SPEC.md** (this file) — new
-- [ ] **Rewrite `school/SKILL.md`** with autonomous flow + single touchpoint
-- [ ] **Convert `other/SKILL.md`** from stub to passthrough
-- [ ] **Minor update `agent/SKILL.md`** to reflect Other = passthrough
-- [ ] **Write `tools/estimate_pages.py`** — word count → page heuristic
-- [ ] **Refresh `CLAUDE.md`** + `README.md` for the new architecture
-- [ ] **Self-test**: tools work, frontmatter valid, mental walkthrough OK, git clean
-- [ ] **Commit + push**
+- [x] SPEC.md, README.md, CLAUDE.md
+- [x] `school/SKILL.md` (autonomous flow, single touchpoint, FORMATTING.md reference)
+- [x] `other/SKILL.md` (passthrough), `work/SKILL.md` (stub), `agent/SKILL.md` (router)
+- [x] `tools/estimate_pages.py` (word-count heuristic)
+- [x] `FORMATTING.md` (academic style guide for UNIR-style work)
+
+Sub-agent + audit refactor:
+- [x] Step 6 in `school/SKILL.md` uses blind sub-agent A for maximize critique
+- [x] Step 7 in `school/SKILL.md` uses blind sub-agent B for draft critique
+- [x] Step 8 generates docx via docx-js in-line (no post-processing)
+- [x] Step 8.5 audit summary in chat + saved to `reasoning/audit.md`
+- [x] All sub-agent invocations specify `model: "opus"`
+- [x] SPEC.md updated
 
 ---
 

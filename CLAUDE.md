@@ -2,6 +2,24 @@
 
 This folder is a multi-project hub. The full architecture lives in `SPEC.md` at the repo root — **read it first** if you're a new Claude session picking up this workspace.
 
+## ⚠️ Required session configuration
+
+**This workspace requires Claude Opus 4.7 with max effort and dangerously-skip-permissions mode. No exceptions.**
+
+Launch command:
+```bash
+claude --dangerously-skip-permissions
+```
+
+Then in-session:
+```
+/effort max
+```
+
+If you (Claude, a future session reading this) detect you are NOT on Opus 4.7, surface a one-line warning to the user and recommend they relaunch. If permission prompts appear during workflow execution, the launch flag was missing.
+
+**Every sub-agent spawned via the Agent tool must use `model: "opus"`.** No Sonnet, no Haiku, no exceptions. This is encoded in `.claude/skills/school/SKILL.md` — do not change it.
+
 ## Available slash commands
 
 - `/agent` — top-level menu (router)
@@ -38,7 +56,13 @@ See `.claude/skills/school/SKILL.md` for the full step-by-step.
 - **Use `tools/transcribe.py`** for any audio/video transcription. Auto-chunks files >20 MB. Reads `OPENAI_API_KEY` from `.env`.
 - **Use `tools/pages_to_md.py`** for any `.pages` file conversion.
 - **Use `tools/estimate_pages.py`** for rough page-count estimates from markdown. Word-count + font heuristic. **Do not** use PDF round-trips for exact counts (too slow, prone to loops).
-- **Single plan doc per project** — `reasoning/plan.md` contains the maximize analysis, the plan, justifications, alternatives, success criteria — all inline. No separate `adversarial.md` or `decision_log.md`.
+- **Multi-doc reasoning per project**, but lean:
+  - `reasoning/sources/*.md` — one comprehensive analysis per source file (instructions, background docs, transcripts). Mandatory; must be deep, not paragraph-stubs.
+  - `reasoning/plan.md` — maximize analysis + plan + sub-agent A critique + sources index.
+  - `reasoning/outline.md` — outline with self-critique at top (revised internally before drafting).
+  - `reasoning/audit.md` — chat-friendly audit summary written before the .docx opens.
+  - `reasoning/progress.md` — lightweight resumption state.
+  No `decision_log.md`, no `adversarial.md`, no `maximize_v1.md` etc.
 - **Git tracks everything.** Commit at each major checkpoint with conventional-commit messages. Never commit `.env`, media files, or `unpacked/` working directories.
 - **Don't push to GitHub automatically** — the user pushes when they want.
 

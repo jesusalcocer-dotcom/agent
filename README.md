@@ -19,17 +19,27 @@ Claude reads the matching skill from `.claude/skills/` and walks you through the
 
 1. **Setup**: pick or create a project; drop your files; tell Claude "ready"
 2. **"Go" confirmation**: Claude identifies your instructions and asks once if it should start the autonomous run
-3. **Autonomous run** (status updates only, no input required):
+3. **Autonomous run** (status updates + final audit summary, no input required):
    - Preprocesses every file — `.pages` → `.docx` → `.md`, PDFs → text, videos → Whisper transcripts
-   - Reads everything, builds a maximize-score analysis with an internal adversarial review pass
-   - Writes a single plan doc with reasoning + justifications inline
-   - Executes the plan to draft `output/draft.md`
-   - Self-reviews against success criteria
-   - Exports to `.docx` with formatting pulled from the instructions
+   - Writes a comprehensive analysis of every source (one file each in `reasoning/sources/`)
+   - Builds the maximize-score analysis; spawns a blind sub-agent (Opus, max effort) to critique it; synthesizes the final plan
+   - Writes the outline, self-critiques it for rubric coverage and source integration, revises until clean
+   - Drafts the document section by section into `output/draft.md`
+   - Spawns a second blind sub-agent (Opus) to critique the draft; revises
+   - Applies academic formatting (per instructions + `FORMATTING.md` gaps) and exports to `.docx`
+   - **Surfaces an audit summary in chat** so you can audit the reasoning before opening the doc
    - **Opens the final Word doc in Microsoft Word**
 4. **Word doc review**: you see the finished file; tell Claude *"looks good"* or *"change X"*
 
 See `SPEC.md` for the full architecture.
+
+## Session configuration (required)
+
+This workspace is designed for **Claude Opus 4.7, max effort, dangerously-skip-permissions**. Launch with:
+```bash
+claude --dangerously-skip-permissions
+```
+Then run `/effort max` once in-session. Every sub-agent spawned by the skill also runs on Opus.
 
 ## Folder layout
 
@@ -59,7 +69,10 @@ agent/
 │       ├── background/           drop class videos, slides, notes here
 │       ├── transcripts/          auto-generated Whisper output
 │       ├── reasoning/
-│       │   ├── plan.md           maximize analysis + plan + reasoning (single doc)
+│       │   ├── sources/          per-source analyses (one comprehensive file per source)
+│       │   ├── plan.md           maximize + plan + sub-agent A critique + sources index
+│       │   ├── outline.md        outline with self-critique at top
+│       │   ├── audit.md          chat-friendly audit summary
 │       │   └── progress.md       resumption state
 │       └── output/
 │           ├── draft.md          markdown source of truth
