@@ -14,7 +14,7 @@ Before doing anything, **read `/Users/fabiola/Desktop/agent/SPEC.md`** for the s
 - **One confirm, then run.** After files are dropped and instructions are identified, the user clicks **Go** once. Then Claude runs autonomously to a finished Word doc. No mid-flight checkpoints.
 - **Markdown is source of truth.** All drafting happens in `output/draft.md`. The `.docx` is a regenerated export.
 - **Document assumptions, don't block.** If you hit ambiguity mid-run, make a documented assumption (in `progress.md` and flagged in the final doc), keep going.
-- **EVERYTHING runs on Opus 4.7, max effort, --dangerously-skip-permissions. Non-negotiable.** Main session AND every sub-agent. When calling the Agent tool, ALWAYS set `model: "opus"`. If the current session is not on Opus, max effort, and dangerously-skip mode, **stop immediately** and tell the user to relaunch with: `claude --dangerously-skip-permissions` and `/effort max`. The skill is designed for this configuration; lesser settings produce shallow analyses.
+- **EVERYTHING runs on Claude Opus 4.7 (model ID `claude-opus-4-7`), max effort, `--dangerously-skip-permissions`. Non-negotiable.** Main session AND every sub-agent. No other Opus version, no Sonnet, no Haiku, no reduced effort. When calling the Agent tool, ALWAYS pass `model: "opus"` (the family-name parameter resolves to the latest Opus, which today is `claude-opus-4-7`). Additionally, every sub-agent prompt MUST contain the identity-verification preamble (see "Sub-agent invocation — full template" section below) — if the sub-agent does not confirm it is `claude-opus-4-7`, the orchestrator aborts. If the current MAIN session is not on `claude-opus-4-7` with max effort and dangerously-skip mode, **stop immediately** and tell the user to relaunch with `claude --dangerously-skip-permissions` and then `/effort max`. The skill is designed for this exact configuration; lesser settings produce shallow analyses and the user does not want that.
 - **Blind reviews to remove same-agent bias.** Sub-agents for adversarial maximize critique and draft critique run in isolation — they do not see the writer's chain of thought, per-source analyses, plan, or outline.
 
 ## Two — and only two — user touchpoints
@@ -26,15 +26,17 @@ Between these two: status updates only, plus the **audit summary in Step 8.5** b
 
 ---
 
-## Step 0 — Pre-flight check (mandatory)
+## Step 0 — Pre-flight check (mandatory, hard-stop)
 
-Before anything else, verify the session is correctly configured:
+Before anything else, verify the session is correctly configured. Each item is **hard-stop** — if you cannot confirm it, refuse to proceed and tell the user to relaunch:
 
-1. **Model = Opus 4.7** (claude-opus-4-7). If you don't know your own model, you may proceed but flag this fact in chat: *"I'm proceeding; if I'm not on Opus, please /switch to it and rerun."*
-2. **Effort = max** (`/effort max` was set). If unsure, ask the user once: *"Are you on max effort? If not, run `/effort max`."*
-3. **`--dangerously-skip-permissions`** is enabled (the session was launched with this CLI flag). If permission prompts appear during the autonomous run, the launch flag was missing — tell the user to relaunch.
+1. **Model = Claude Opus 4.7** (exact ID: `claude-opus-4-7`). No other Opus version, no Sonnet, no Haiku.
+   - To check: look at your model identification. If you are not `claude-opus-4-7`, refuse with: *"I'm not running Claude Opus 4.7 — I'm `<your model ID>`. This skill requires Opus 4.7 specifically. Please relaunch with `claude --model claude-opus-4-7 --dangerously-skip-permissions` or switch the model and try again."*
+   - If you genuinely don't have a way to introspect your own model, say so explicitly to the user and let them decide whether to proceed.
+2. **Effort = max** (`/effort max` was set in this session). If unsure, ask once: *"Are you on max effort? Run `/effort max` if not — this skill requires it."*
+3. **`--dangerously-skip-permissions`** was passed at launch. If permission prompts appear during the autonomous run, the launch flag was missing — pause and tell the user to relaunch.
 
-If any of these fail or are uncertain, surface a one-line warning in chat before proceeding but don't block. The user is informed and chose to continue.
+These three together are mandatory. Don't soft-fail.
 
 ---
 
@@ -241,35 +243,34 @@ If a source is large (>10k words or >30 min audio): take longer, write more — 
 
 ### 6c. Spawn blind sub-agent A — adversarial critique
 
-Use the **Agent** tool. Settings:
-- `subagent_type`: `"general-purpose"`
-- `model`: `"opus"`
+Use the **Agent** tool with the **custom subagent definition** at `.claude/agents/blind-maximize-critic.md`. The model (`claude-opus-4-7`) and effort (`max`) are **pinned in the agent's frontmatter** — you do NOT pass them as parameters. The agent's system prompt (in its body) defines the role, format, and identity-check rules.
+
+Settings:
+- `subagent_type`: `"blind-maximize-critic"`
 - `description`: `"Blind maximize-score critique"`
-- `prompt`: Use exactly the template below, with `{ASIGNATURA}`, `{INSTRUCTIONS_TEXT}`, and `{ANALYSIS_V1_TEXT}` substituted with the actual content.
+- `prompt`: data-only template below, with `{ASIGNATURA}`, `{INSTRUCTIONS_TEXT}`, and `{ANALYSIS_V1_TEXT}` substituted.
 
-**Template:**
+**Prompt template (data only — no role instructions, those live in the agent file):**
 ```
-Eres un corrector experimentado de la UNIR, máster en {ASIGNATURA}, con la rúbrica oficial en mano y poco tiempo para corregir. Has visto cientos de trabajos similares y eres exigente.
+Asignatura: {ASIGNATURA}
 
-Aquí están las instrucciones COMPLETAS de la actividad:
+INSTRUCCIONES COMPLETAS DE LA ACTIVIDAD:
 ---
 {INSTRUCTIONS_TEXT}
 ---
 
-Aquí está un "análisis de maximización" escrito por la asistente del estudiante. Tú NO has visto su razonamiento — solo el resultado:
+ANÁLISIS DE MAXIMIZACIÓN ESCRITO POR LA ASISTENTE (tú no has visto su razonamiento, solo el resultado):
 ---
 {ANALYSIS_V1_TEXT}
 ---
-
-Tu tarea: critica el análisis DURO. Específicamente:
-1. ¿Dónde es vago o generalista?
-2. ¿Qué requisitos explícitos de la rúbrica está minimizando o ignorando?
-3. ¿Qué requisitos OCULTOS o implícitos (nivel máster, convenciones UNIR, expectativas del corrector experto) no menciona?
-4. Si un borrador siguiera este análisis al pie de la letra, ¿qué puntos concretos perdería al ser corregido?
-5. ¿Qué movimientos haría un trabajo de matrícula (9-10/10) que este análisis no sugiere?
-
-Responde en español, <500 palabras, en formato de lista numerada. Sé honesto y duro — el objetivo es mejorar el análisis, no ser amable. Devuelve solo la crítica, sin saludos ni cierre.
 ```
+
+**Why this works (vs. passing `model: "opus"`):** the `blind-maximize-critic` agent definition pins `model: claude-opus-4-7` and `effort: max` at the agent level. This is the strongest enforcement available — Claude Code resolves the subagent's model in this order: `CLAUDE_CODE_SUBAGENT_MODEL` env var > per-invocation `model` parameter > **subagent definition's `model` frontmatter** > main conversation's model. Since we don't pass a per-invocation override and don't set the env var, the definition's `claude-opus-4-7` wins.
+
+**Orchestrator behavior on receiving sub-agent A's response:**
+- If the first line is `NOT-OPUS-4.7: <something>` → ABORT the run, write to `progress.md`, surface to user: *"Sub-agent A reported it's not running Claude Opus 4.7. The skill refuses to proceed with a lesser model. Check your environment and relaunch."*
+- If the first line is `MODEL: claude-opus-4-7` → strip that line and proceed with the rest as the critique.
+- If no identity line is present → ABORT and tell the user the sub-agent did not confirm identity.
 
 **Important**:
 - Do NOT include your (writer's) reasoning, your "in your head" passes, the per-source analyses, or any meta-commentary in the prompt.
@@ -432,36 +433,32 @@ After the draft is fully written, commit `feat(<slug>): draft v1 complete`.
 
 ### 7d. Spawn blind sub-agent B — draft critique
 
-Once the draft is complete, use the **Agent** tool again:
-- `subagent_type`: `"general-purpose"`
-- `model`: `"opus"`
+Use the **Agent** tool with the **custom subagent definition** at `.claude/agents/blind-draft-critic.md`. Model and effort are pinned in the agent's frontmatter.
+
+Settings:
+- `subagent_type`: `"blind-draft-critic"`
 - `description`: `"Blind draft critique"`
-- `prompt`: Template below, with `{ASIGNATURA}`, `{INSTRUCTIONS_TEXT}`, and `{DRAFT_TEXT}` substituted.
+- `prompt`: data-only template below.
 
-**Template:**
+**Prompt template (data only):**
 ```
-Eres un corrector experimentado de la UNIR, máster en {ASIGNATURA}, con la rúbrica oficial en mano. Vas a corregir un borrador de la actividad. No has visto el proceso de elaboración — solo el resultado final.
+Asignatura: {ASIGNATURA}
 
-Aquí están las instrucciones COMPLETAS de la actividad:
+INSTRUCCIONES COMPLETAS DE LA ACTIVIDAD:
 ---
 {INSTRUCTIONS_TEXT}
 ---
 
-Aquí está el borrador del estudiante (en markdown — evalúa el CONTENIDO, no el formato):
+BORRADOR DEL ESTUDIANTE (markdown — evalúa el CONTENIDO, no el formato):
 ---
 {DRAFT_TEXT}
 ---
-
-Tu tarea: critica el borrador con criterios de rúbrica. Específicamente:
-1. ¿Cumple TODAS las secciones explícitamente pedidas en las instrucciones?
-2. ¿Dónde es generalista, vago, usa frases comodín sin sustancia?
-3. ¿Dónde faltan citas, justificaciones técnicas, o referencias específicas?
-4. ¿Hay requisitos ocultos del nivel máster (UNIR) que no cumple?
-5. ¿Qué puntos concretos perderá al corregirlo un experto duro?
-6. ¿Qué le falta para ser un trabajo de matrícula (9-10/10)?
-
-Responde en español, <700 palabras, en formato de lista numerada. Sé brutal — el objetivo es mejorar el trabajo, no animarlo. Devuelve solo la crítica, sin saludos ni cierre.
 ```
+
+**Orchestrator behavior on receiving sub-agent B's response:**
+- If the first line is `NOT-OPUS-4.7: <something>` → ABORT, log to `progress.md`, surface to user.
+- If the first line is `MODEL: claude-opus-4-7` → strip that line and proceed.
+- If no identity line is present → ABORT.
 
 ### 7e. Address the critique → revise draft
 
@@ -741,18 +738,36 @@ When calling the Agent tool for blind sub-agent reviews:
 
 ```
 Agent(
-    subagent_type: "general-purpose",
-    model: "opus",
+    subagent_type: "blind-maximize-critic",   # or "blind-draft-critic"
     description: "<short description>",
-    prompt: <the template from Step 6b or 7b with substitutions>
+    prompt: <data-only template from Step 6c or 7d>
 )
 ```
 
+**Model + effort are pinned in the custom agent definitions** at `.claude/agents/blind-maximize-critic.md` and `.claude/agents/blind-draft-critic.md`. Both files have:
+```yaml
+model: claude-opus-4-7
+effort: max
+```
+
+This is the strongest enforcement Claude Code provides. Per the docs ([sub-agents documentation](https://code.claude.com/docs/en/sub-agents)), the subagent's model resolves in this order:
+1. `CLAUDE_CODE_SUBAGENT_MODEL` env var (we don't set this)
+2. Per-invocation `model` parameter (we don't pass this)
+3. **Subagent definition's `model` frontmatter** ← `claude-opus-4-7` wins here
+4. Main conversation's model
+
+Plus the identity-check line embedded in the agent's system prompt is a runtime sanity verification.
+
 **Critical isolation rules:**
-- The sub-agent prompt must include ONLY: assignment instructions + the artifact to critique (v1 analysis or draft).
-- Do NOT include your chain-of-thought, your "v1 (in your head)" reasoning, or any meta-commentary.
-- Do NOT include the maximize plan when invoking sub-agent B (draft critic) — they should evaluate the draft against the rubric, not against your own plan.
-- Sub-agents return their critique as a text response. Save it to a local variable in the context; embed verbatim in `plan.md` (sub-agent A) and `audit.md` (both A and B).
+- The orchestrator's `prompt` passes ONLY: assignment instructions + the artifact to critique (v1 analysis or draft). Role instructions live in the agent's system prompt (its file body) — don't duplicate them.
+- Do NOT include your chain-of-thought, your "v1 (in your head)" reasoning, the per-source analyses, the plan, the outline, or any meta-commentary.
+- Sub-agent A (Step 6c) sees: instructions + maximize v1 only.
+- Sub-agent B (Step 7d) sees: instructions + draft only — NOT the plan, outline, or sources.
+- Sub-agents return their critique as a text response. The orchestrator MUST verify the identity-check line first:
+  - First line `MODEL: claude-opus-4-7` → strip and proceed
+  - First line `NOT-OPUS-4.7: <something>` → ABORT, log in `progress.md`, surface to user
+  - No identity line → ABORT
+- Save the verified critique to a local variable; embed verbatim in `plan.md` (sub-agent A) and `audit.md` (both A and B).
 
 ---
 
@@ -768,7 +783,7 @@ Agent(
 - Don't switch to English in Spanish deliverables unless the user explicitly says so.
 - Don't make the user navigate Finder. Auto-open everything.
 - Don't speak like a developer log (avoid: *"Writing reasoning/plan.md to disk"*). Speak like a teammate (*"Building the plan now"*).
-- Don't use any model other than Opus 4.7 — anywhere, ever. Always `model: "opus"` for sub-agents. If the main session detects it's running on Sonnet/Haiku, stop and tell the user.
+- Don't use any model other than Claude Opus 4.7 (`claude-opus-4-7`) — anywhere, ever. Always `model: "opus"` for sub-agents AND verify via the identity-check preamble that the resolved model is `claude-opus-4-7`. If the main session detects it's running on Sonnet, Haiku, or any other Opus version, stop and tell the user. If a sub-agent identity check returns `NOT-OPUS-4.7`, ABORT the run.
 - Don't share your chain-of-thought with sub-agents — that defeats the purpose of blind review.
 - Don't post-process the .docx after pandoc with XML edits. Build it correctly the first time with docx-js parameters.
 

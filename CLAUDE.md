@@ -18,7 +18,11 @@ Then in-session:
 
 If you (Claude, a future session reading this) detect you are NOT on Opus 4.7, surface a one-line warning to the user and recommend they relaunch. If permission prompts appear during workflow execution, the launch flag was missing.
 
-**Every sub-agent spawned via the Agent tool must use `model: "opus"`.** No Sonnet, no Haiku, no exceptions. This is encoded in `.claude/skills/school/SKILL.md` — do not change it.
+**Every sub-agent spawned via the Agent tool uses `model: claude-opus-4-7` and `effort: max`, pinned at the agent-definition level.** The custom agents live in `.claude/agents/`:
+- `blind-maximize-critic.md` — used in Step 6c of the school skill
+- `blind-draft-critic.md` — used in Step 7d of the school skill
+
+Their YAML frontmatter pins the exact model ID and max effort. Their body system prompts include a self-identity verification line that the orchestrator checks. Do not weaken these.
 
 ## Available slash commands
 

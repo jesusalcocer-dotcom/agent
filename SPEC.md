@@ -29,13 +29,18 @@ A personal Claude Code hub for a UNIR Master's student in Clinical Neuropsycholo
 
 ```
 agent/
-├── .claude/skills/
-│   ├── agent/SKILL.md              router
-│   ├── school/SKILL.md             main school workflow
-│   ├── work/SKILL.md               stub
-│   ├── other/SKILL.md              passthrough
-│   ├── docx/                       Anthropic's official — Word generation
-│   └── pdf/                        Anthropic's official — PDF reading
+├── .claude/
+│   ├── agents/                     custom subagent definitions (model + effort pinned)
+│   │   ├── blind-maximize-critic.md   Sub-agent A (Step 6c) — model: claude-opus-4-7, effort: max
+│   │   └── blind-draft-critic.md      Sub-agent B (Step 7d) — model: claude-opus-4-7, effort: max
+│   └── skills/
+│       ├── agent/SKILL.md          router
+│       ├── school/SKILL.md         main school workflow
+│       ├── school/FORMATTING.md    academic format reference (UNIR style)
+│       ├── work/SKILL.md           stub
+│       ├── other/SKILL.md          passthrough
+│       ├── docx/                   Anthropic's official — Word generation
+│       └── pdf/                    Anthropic's official — PDF reading
 ├── tools/
 │   ├── transcribe.py               Whisper API wrapper (auto-chunks)
 │   ├── pages_to_md.py              .pages → .docx → .md via LibreOffice + pandoc
@@ -135,7 +140,7 @@ Read everything: instructions `.md`, all background `.md` sidecars, all transcri
 Build the maximize + plan in four sub-steps:
 1. **6a — Maximize v1 (in your head, not saved)** — rubric, implicit signals, grader psychology, pedagogical aim, high-leverage moves, traps.
 2. **6b — Per-source analysis (MANDATORY, one file per source)** — for every file in `instructions/`, `background/`, and `transcripts/`, write a comprehensive analysis to `reasoning/sources/<sluggified-basename>.md`. Each analysis must include: identification, substantive content summary (3-5 paragraphs minimum, with markers), relevance analysis for THIS assignment (one section per connection identified, with explicit justification linked to the maximize analysis), citable material list, what is NOT used and why, cross-source integration, mapping to the final doc sections. **Superficial paragraphs are unacceptable** — depth must scale with source size.
-3. **6c — Sub-agent A blind adversarial critique** — invoke the Agent tool (`subagent_type: "general-purpose"`, **`model: "opus"`**). Pass it ONLY the assignment instructions and your written v1. **Do NOT share your chain-of-thought or the per-source analyses.** The sub-agent returns a harsh UNIR-grader-style critique. See `.claude/skills/school/SKILL.md` for the full prompt template.
+3. **6c — Sub-agent A blind adversarial critique** — invoke the Agent tool with `subagent_type: "blind-maximize-critic"` (a custom subagent defined at `.claude/agents/blind-maximize-critic.md` with `model: claude-opus-4-7` and `effort: max` pinned in its frontmatter). Pass it ONLY the assignment instructions and your written v1 in the prompt. **Do NOT share your chain-of-thought or the per-source analyses.** The sub-agent returns a harsh UNIR-grader-style critique. See `.claude/skills/school/SKILL.md` for the full invocation pattern. The sub-agent's first response line is an identity check (`MODEL: claude-opus-4-7` or `NOT-OPUS-4.7: …`) that the orchestrator verifies; on mismatch, the run aborts.
 4. **6d — v2 synthesis → `reasoning/plan.md`** — combine your v1 + sub-agent A's critique, write `reasoning/plan.md` (in Spanish). Plan doc includes the critique verbatim, how it was addressed, and an **index** (not duplicate) of the per-source analyses in `reasoning/sources/`.
 
 Plan doc structure:
@@ -194,7 +199,7 @@ Commit `docs(<slug>): plan + maximize complete`.
 
 7c. **Draft from outline** — write `output/draft.md` section by section, following the outline. Pull citations/data/frameworks from the relevant `reasoning/sources/*.md` files per the outline's mapping. Spanish (or instructions language), justified prose. Commit `feat(<slug>): draft v1 complete`.
 
-7d. **Sub-agent B blind draft critique** — invoke the Agent tool (`subagent_type: "general-purpose"`, **`model: "opus"`**). Pass it ONLY the assignment instructions and the draft. **Do NOT share the plan, outline, or per-source analyses.** The sub-agent returns a harsh rubric-bound critique.
+7d. **Sub-agent B blind draft critique** — invoke the Agent tool with `subagent_type: "blind-draft-critic"` (custom agent at `.claude/agents/blind-draft-critic.md`, `model: claude-opus-4-7`, `effort: max` pinned). Pass it ONLY the assignment instructions and the draft. **Do NOT share the plan, outline, or per-source analyses.** The sub-agent returns a harsh rubric-bound critique. Identity check verified on response.
 
 7e. **Address the critique** — revise `output/draft.md` based on sub-agent B's critique. Document which points were addressed, which dismissed, why. Save both the critique and your responses for the Step 8.5 audit summary.
 
@@ -250,7 +255,7 @@ Edits go to `output/draft.md`. Re-run the docx-js build with version bump → `_
 
 5. **Maximize lens always on.** Every plan step asks "does this maximize the grade?"
 
-6. **Blind sub-agent reviews remove same-agent bias.** Sub-agent A critiques the maximize analysis (Step 6c); sub-agent B critiques the draft (Step 7d). Both run in isolation — they see only the inputs (instructions + artifact), NOT the writer's chain-of-thought, the per-source analyses, the plan, or the outline. All sub-agents run on `model: "opus"` for maximum capability.
+6. **Blind sub-agent reviews remove same-agent bias.** Sub-agent A critiques the maximize analysis (Step 6c); sub-agent B critiques the draft (Step 7d). Both are defined as **custom subagents** in `.claude/agents/` with `model: claude-opus-4-7` and `effort: max` pinned in the frontmatter — the strongest enforcement Claude Code provides. They run in isolation: they see only the inputs (instructions + artifact), NOT the writer's chain-of-thought, the per-source analyses, the plan, or the outline. Each sub-agent's system prompt also embeds an identity-check line that the orchestrator verifies; mismatch aborts the run.
 
 6b. **Mandatory thoroughness steps cannot be skipped.** The agent has leeway on the plan, but always must do these in order: per-source analysis (one comprehensive file per source) → maximize plan → outline → outline self-critique → draft → draft critique. Skipping these or doing them superficially defeats the architecture. The skill enforces this by structure.
 
@@ -268,7 +273,7 @@ Edits go to `output/draft.md`. Re-run the docx-js build with version bump → `_
 
 13. **Git tracks everything.** Each phase commits. `.env` and media files are gitignored.
 
-14. **All AI work runs on Opus 4.7, max effort, dangerously-skip-permissions. Non-negotiable.** Main session AND every spawned sub-agent. Launch with `claude --dangerously-skip-permissions`; set `/effort max` in-session. Agent tool calls always pass `model: "opus"`. The skill refuses to do shallow work — it is designed for this configuration.
+14. **All AI work runs on Claude Opus 4.7 (`claude-opus-4-7`), max effort, dangerously-skip-permissions. Non-negotiable.** Main session AND every spawned sub-agent. Launch with `claude --dangerously-skip-permissions`; set `/effort max` in-session. Sub-agents are defined in `.claude/agents/` with `model: claude-opus-4-7` and `effort: max` **pinned in their frontmatter** — Claude Code resolves the subagent's model from its definition file unless overridden. Each sub-agent's system prompt also includes an identity-check line that the orchestrator verifies on response. The skill refuses to do shallow work — it is designed for this exact configuration.
 
 ---
 
