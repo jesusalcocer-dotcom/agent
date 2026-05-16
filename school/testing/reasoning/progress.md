@@ -1,8 +1,16 @@
 # Progress — testing
 
-**Phase**: v1 exported, open in Word
-**Next step**: Awaiting user review
+**Phase**: v2 exported with academic formatting, open in Word
+**Next step**: Awaiting user review of v2
 **Mode**: waiting on user
+
+## Format adjustments in v2
+- All text Calibri 12, 100% black (no theme colors)
+- Body justified (justificado), interlineado 1,5
+- Headings: Title 14pt centered bold; sections 12pt bold; subsections 12pt bold italic
+- Horizontal rules removed
+- Page numbers added to footer (centered)
+- Author block split into 3 centered lines
 
 ## Files produced
 - `reasoning/plan.md` — plan + maximize analysis
