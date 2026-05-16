@@ -1,0 +1,45 @@
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Heavy media — never commit
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.mp3
+*.wav
+*.m4a
+*.flac
+*.ogg
+
+# OS / editor
+.DS_Store
+.Trash/
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Anthropic skill temp working dirs
+unpacked/
+*_unpacked/
+*.docx.bak
+
+# Local-only working notes (user can override)
+scratch/
